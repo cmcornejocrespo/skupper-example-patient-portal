@@ -50,6 +50,11 @@ It contains three services:
 This example uses two Kubernetes namespaces, "private" and "public",
 to represent the private Kubernetes cluster and the public cloud.
 
+
+<center>
+<img src="images/overall.png" width="640"/>
+</center>
+
 ## Prerequisites
 
 * The `kubectl` command-line tool, version 1.15 or later
@@ -141,35 +146,52 @@ set-context` to set the current namespace for each session.
 _**Console for public:**_
 
 ~~~ shell
-kubectl create namespace public
-kubectl config set-context --current --namespace public
+oc new-project public
+oc config set-context --current --namespace public
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ kubectl create namespace public
-namespace/public created
+$ oc new-project public                                                                      ─╯
+Now using project "public" on server "https://api.tenant-01-aws.sandbox1286.opentlc.com:6443".
 
-$ kubectl config set-context --current --namespace public
-Context "minikube" modified.
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=registry.k8s.io/e2e-test-images/agnhost:2.43 -- /agnhost serve-hostname
+
+
+$ oc config set-context --current --namespace public                                         ─╯
+Context "public/api-tenant-01-aws-sandbox1286-opentlc-com:6443/system:admin" modified.
 ~~~
 
 _**Console for private:**_
 
 ~~~ shell
-kubectl create namespace private
-kubectl config set-context --current --namespace private
+oc new-project private
+oc config set-context --current --namespace private
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ kubectl create namespace private
-namespace/private created
+$ oc new-project private                                                                 ─╯
+Now using project "private" on server "https://<ocp_api>:6443".
 
-$ kubectl config set-context --current --namespace private
-Context "minikube" modified.
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=registry.k8s.io/e2e-test-images/agnhost:2.43 -- /agnhost serve-hostname
+
+$ oc config set-context --current --namespace private                                    ─╯
+Context "private/<ocp_api>:6443/system:admin" modified.
 ~~~
 
 ## Step 5: Install Skupper in your namespaces
@@ -186,29 +208,28 @@ tunnel`][minikube-tunnel] before you install Skupper.
 _**Console for public:**_
 
 ~~~ shell
-skupper init
+skupper init --enable-console --enable-flow-collector
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ skupper init
-Waiting for LoadBalancer IP or hostname...
+$ skupper init --enable-console --enable-flow-collector
 Skupper is now installed in namespace 'public'.  Use 'skupper status' to get more information.
 ~~~
 
 _**Console for private:**_
 
 ~~~ shell
-skupper init
+skupper init --enable-console --enable-flow-collector
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ skupper init
-Waiting for LoadBalancer IP or hostname...
+$ skupper init --enable-console --enable-flow-collector
 Skupper is now installed in namespace 'private'.  Use 'skupper status' to get more information.
+
 ~~~
 
 ## Step 6: Check the status of your namespaces
@@ -225,8 +246,8 @@ skupper status
 _Sample output:_
 
 ~~~ console
-$ skupper status
-Skupper is enabled for namespace "public" in interior mode. It is connected to 1 other site. It has 1 exposed service.
+$ skupper status                                                                             ─╯
+Skupper is enabled for namespace "public" in interior mode. It is not connected to any other sites. It has no exposed services.
 The site console url is: <console-url>
 The credentials for internal console-auth mode are held in secret: 'skupper-console-users'
 ~~~
@@ -291,7 +312,7 @@ _Sample output:_
 
 ~~~ console
 $ skupper link create ~/secret.token
-Site configured to link to https://10.105.193.154:8081/ed9c37f6-d78a-11ec-a8c7-04421a4c5042 (name=link1)
+Site configured to link to https://claims-public.apps.<ocp_cluster_basename>:443/382186f1-fe4e-11ed-816b-8c8caa458e86 (name=link1)
 Check the status of the link using 'skupper link status'.
 ~~~
 
@@ -302,53 +323,53 @@ creation.
 
 ## Step 8: Deploy and expose the database
 
-Use `docker` to run the database service on your local machine.
+Use `podman` to run the database service on your local machine.
 In the public namespace, use the `skupper gateway expose`
 command to expose the database on the Skupper network.
 
-Use `kubectl get service/database` to ensure the database
+Use `oc get service/database` to ensure the database
 service is available.
 
 _**Console for public:**_
 
 ~~~ shell
-docker run --name database --detach --rm -p 5432:5432 quay.io/skupper/patient-portal-database
-skupper gateway expose database localhost 5432 --type docker
-kubectl get service/database
+podman run --name database --detach --rm -p 5432:5432 quay.io/skupper/patient-portal-database
+skupper gateway expose database localhost 5432 --type podman
+oc get service/database
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ skupper gateway expose database localhost 5432 --type docker
-2022/05/19 16:37:00 CREATE io.skupper.router.tcpConnector fancypants-jross-egress-database:5432 map[address:database:5432 host:localhost name:fancypants-jross-egress-database:5432 port:5432 siteId:0e7b70cf-1931-4c93-9614-0ecb3d0d6522]
+$ skupper gateway expose database localhost 5432 --type podman
+2023/05/29 21:04:12 CREATE io.skupper.router.tcpConnector database:5432 map[address:database:5432 host:localhost name:database:5432 port:5432 siteId:70aaec38-0f06-4cae-b0a6-db700f705c6f]
 
-$ kubectl get service/database
-NAME       TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
-database   ClusterIP   10.104.77.32   <none>        5432/TCP   15s
+$ oc get service/database
+NAME       TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+database   ClusterIP   172.30.88.107   <none>        5432/TCP   35s
 ~~~
 
 ## Step 9: Deploy and expose the payment processor
 
-In the private namespace, use the `kubectl apply` command to
+In the private namespace, use the `oc apply` command to
 deploy the payment processor service.  Use the `skupper expose`
 command to expose the service on the Skupper network.
 
-In the public namespace, use `kubectl get service/payment-processor` to
+In the public namespace, use `oc get service/payment-processor` to
 check that the `payment-processor` service appears after a
 moment.
 
 _**Console for private:**_
 
 ~~~ shell
-kubectl apply -f payment-processor/kubernetes.yaml
+oc apply -f payment-processor/kubernetes.yaml
 skupper expose deployment/payment-processor --port 8080
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ kubectl apply -f payment-processor/kubernetes.yaml
+$ oc apply -f payment-processor/kubernetes.yaml
 deployment.apps/payment-processor created
 
 $ skupper expose deployment/payment-processor --port 8080
@@ -358,7 +379,7 @@ deployment payment-processor exposed as payment-processor
 _**Console for public:**_
 
 ~~~ shell
-kubectl get service/payment-processor
+oc get service/payment-processor
 ~~~
 
 _Sample output:_
@@ -371,54 +392,72 @@ payment-processor   ClusterIP   10.103.227.109   <none>        8080/TCP   1s
 
 ## Step 10: Deploy and expose the frontend
 
-In the public namespace, use the `kubectl apply` command to
-deploy the frontend service.  This also sets up an external load
-balancer for the frontend.
+In the public namespace, use the `oc apply` command to
+deploy the frontend service. We need to also set up a route for the frontend.
 
 _**Console for public:**_
 
 ~~~ shell
-kubectl apply -f frontend/kubernetes.yaml
+oc apply -f frontend/kubernetes.yaml
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ kubectl apply -f frontend/kubernetes.yaml
+$ oc apply -f frontend/kubernetes.yaml
 deployment.apps/frontend created
 service/frontend created
 ~~~
 
-## Step 11: Test the application
-
-Now we're ready to try it out.  Use `kubectl get service/frontend`
-to look up the external IP of the frontend service.  Then use
-`curl` or a similar tool to request the `/api/health` endpoint at
-that address.
-
-**Note:** The `<external-ip>` field in the following commands is a
-placeholder.  The actual value is an IP address.
-
-_**Console for public:**_
-
 ~~~ shell
-kubectl get service/frontend
-curl http://<external-ip>:8080/api/health
+oc expose service frontend
 ~~~
 
 _Sample output:_
 
 ~~~ console
-$ kubectl get service/frontend
-NAME       TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)          AGE
-frontend   LoadBalancer   10.103.232.28   <external-ip>   8080:30407/TCP   15s
+$ oc expose service frontend
+route.route.openshift.io/frontend exposed
+~~~
 
-$ curl http://<external-ip>:8080/api/health
+## Step 11: Test the application
+
+Now we're ready to try it out.  Use `oc get route frontend --output jsonpath={.spec.host}`
+to look up the <frontend_route> of the frontend service.  Then use
+`curl` or a similar tool to request the `/api/health` endpoint at
+that address.
+
+_**Console for public:**_
+
+~~~ shell
+oc get route frontend --output jsonpath={.spec.host}
+curl http://<frontend_route>:8080/api/health
+~~~
+
+_Sample output:_
+
+~~~ console
+$ oc get route frontend --output jsonpath={.spec.host}
+<frontend_route>%
+
+$ curl http://<frontend_route>/api/health
 OK
 ~~~
 
 If everything is in order, you can now access the web interface by
-navigating to `http://<external-ip>:8080/` in your browser.
+navigating to `http://<frontend_route/` in your browser.
+
+Try creating some random appointments to see the DB logs.
+
+<center>
+<img src="images/appointments.png" width="640"/>
+</center>
+
+And finally pay some bills for the patient=1 to visualize all the flow.
+
+<center>
+<img src="images/communications.png" width="640"/>
+</center>
 
 ## Cleaning up
 
@@ -428,18 +467,17 @@ the following commands.
 _**Console for public:**_
 
 ~~~ shell
-docker stop database
+podman stop database
 skupper gateway delete
 skupper delete
-kubectl delete service/frontend
-kubectl delete deployment/frontend
+oc delete project public
 ~~~
 
 _**Console for private:**_
 
 ~~~ shell
 skupper delete
-kubectl delete deployment/payment-processor
+oc delete project private
 ~~~
 
 ## Next steps
